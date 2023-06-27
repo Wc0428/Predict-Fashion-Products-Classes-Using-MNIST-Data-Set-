@@ -4,6 +4,7 @@ from tensorflow import keras
 from tensorflow.keras.datasets import fashion_mnist
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from kerastuner.tuners import RandomSearch
 
 # Load the Fashion MNIST dataset
 (train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
@@ -19,26 +20,44 @@ test_images = test_images.astype('float32') / 255
 train_labels = keras.utils.to_categorical(train_labels)
 test_labels = keras.utils.to_categorical(test_labels)
 
-# Create the CNN model
-model = Sequential()
-model.add(Conv2D(64, (3, 3), activation='relu', input_shape=(28, 28, 1)))
-model.add(MaxPooling2D((2, 2)))
-model.add(Conv2D(64, (3, 3), activation='relu'))
-model.add(MaxPooling2D((2, 2)))
-model.add(Flatten())
-model.add(Dense(128, activation='relu'))
-model.add(Dense(10, activation='softmax'))
+# Define the CNN model builder function
+def build_model(hp):
+    model = Sequential()
+    model.add(Conv2D(hp.Int('conv1_units', min_value=32, max_value=128, step=16), (3, 3), activation='relu', input_shape=(28, 28, 1)))
+    model.add(MaxPooling2D((2, 2)))
+    model.add(Conv2D(hp.Int('conv2_units', min_value=32, max_value=128, step=16), (3, 3), activation='relu'))
+    model.add(MaxPooling2D((2, 2)))
+    model.add(Flatten())
+    model.add(Dense(hp.Int('dense_units', min_value=64, max_value=256, step=32), activation='relu'))
+    model.add(Dense(10, activation='softmax'))
 
-# Compile and train the model
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-model.fit(train_images, train_labels, epochs=10, batch_size=50, verbose=1)
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
 
-# Evaluate the model
-test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=0)
-print('Test accuracy:', test_acc)
+# Define the tuner
+tuner = RandomSearch(
+    build_model,
+    objective='val_accuracy',
+    max_trials=5,
+    executions_per_trial=1,
+    directory='tuner_results',
+    project_name='fashion_mnist_tuning'
+)
 
-# Make predictions
-predictions = model.predict(test_images)
+# Perform hyperparameter tuning
+tuner.search(train_images, train_labels, epochs=10, validation_data=(test_images, test_labels))
+
+# Get the best model and its hyperparameters
+best_model = tuner.get_best_models(num_models=1)[0]
+best_hyperparameters = tuner.get_best_hyperparameters(num_trials=1)[0]
+
+# Evaluate the best model
+test_loss, test_acc = best_model.evaluate(test_images, test_labels, verbose=0)
+print('Best Model - Test accuracy:', test_acc)
+print('Best Hyperparameters:', best_hyperparameters)
+
+# Make predictions with the best model
+predictions = best_model.predict(test_images)
 predicted_classes = np.argmax(predictions, axis=1)
 
 # Mapping class indices to class names
