@@ -31,7 +31,7 @@ model.add(Dense(10, activation='softmax'))
 
 # Compile and train the model
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-model.fit(train_images, train_labels, epochs=1, batch_size=50, verbose=1)
+model.fit(train_images, train_labels, epochs=10, batch_size=50, verbose=1)
 
 # Evaluate the model
 test_loss, test_acc = model.evaluate(test_images, test_labels, verbose=0)
@@ -54,3 +54,4 @@ for i in range(25):
     plt.imshow(test_images[i].reshape(28, 28), cmap=plt.cm.binary)
     plt.xlabel(class_names[predicted_classes[i]])   
 plt.show()
+
